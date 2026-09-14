@@ -1,0 +1,67 @@
+services:
+  oracle-db:
+    image: gvenzl/oracle-free:23-slim
+    container_name: cuidabot-oracle
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD:-FiapDevOps2026}
+      APP_USER: ${ORACLE_APP_USER:-cuidabot}
+      APP_USER_PASSWORD: ${ORACLE_APP_PASSWORD:-CuidaBot2026}
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    networks:
+      - cuidabot-net
+
+  staging:
+    build: .
+    image: cuidabot-esg-api:${IMAGE_TAG:-local}
+    container_name: cuidabot-staging
+    depends_on:
+      oracle-db:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8080
+      DB_URL: jdbc:oracle:thin:@oracle-db:1521/FREEPDB1
+      DB_USER: ${ORACLE_APP_USER:-cuidabot}
+      DB_PASSWORD: ${ORACLE_APP_PASSWORD:-CuidaBot2026}
+      APP_USER: ${APP_USER:-admin}
+      APP_PASSWORD: ${APP_PASSWORD:-Admin2026}
+      JPA_SHOW_SQL: "false"
+    ports:
+      - "${STAGING_PORT:-8081}:8080"
+    networks:
+      - cuidabot-net
+    restart: unless-stopped
+
+  production:
+    image: cuidabot-esg-api:${IMAGE_TAG:-local}
+    container_name: cuidabot-production
+    depends_on:
+      oracle-db:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8080
+      DB_URL: jdbc:oracle:thin:@oracle-db:1521/FREEPDB1
+      DB_USER: ${ORACLE_APP_USER:-cuidabot}
+      DB_PASSWORD: ${ORACLE_APP_PASSWORD:-CuidaBot2026}
+      APP_USER: ${APP_USER:-admin}
+      APP_PASSWORD: ${APP_PASSWORD:-Admin2026}
+      JPA_SHOW_SQL: "false"
+    ports:
+      - "${PRODUCTION_PORT:-8080}:8080"
+    networks:
+      - cuidabot-net
+    restart: unless-stopped
+
+volumes:
+  oracle-data:
+
+networks:
+  cuidabot-net:
+    driver: bridge
